@@ -302,5 +302,3 @@ CREATE TABLE DimProductCategory
 ENGINE = MergeTree()
 PRIMARY KEY (ProductCategoryKey)
 ORDER BY (ProductCategoryKey);
-
--- END OF FILE
