@@ -1,3 +1,4 @@
+
 -- ===================================================================
 -- 03_create_aggregate_tables.sql
 -- AdventureWorks DWH – All Aggregated Fact Tables (SummingMergeTree)
