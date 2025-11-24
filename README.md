@@ -1,10 +1,10 @@
-# AdventureWorks Data Warehouse + Real-time Power BI
+# AdventureWorks DWH Project
 
-Complete internship task implementation:
-- ClickHouse DWH with SCD Type 2
-- Apache Airflow ETL with full error handling
-- Real-time Power BI DirectQuery dashboards
+This repo contains the implementation for building a Data Warehouse from AdventureWorks data using ClickHouse and Apache Airflow.
 
-Daily progress pushed every evening with checkbox updates.
+## Progress
+- [x] Created dimension and fact table SQL scripts
+- [ ] Implemented full Airflow DAG
+- [ ] Tested ETL pipeline
 
-Current status: All ClickHouse tables + Airflow DAG skeleton ready
+Push daily updates.
