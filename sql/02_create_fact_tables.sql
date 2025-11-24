@@ -1,3 +1,4 @@
+
 -- ===================================================================
 -- 02_create_fact_tables.sql
 -- AdventureWorks DWH – All Fact Tables (Core + Extended)
