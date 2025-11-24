@@ -1,3 +1,4 @@
+
 -- ===================================================================
 -- 01_create_dim_tables.sql
 -- AdventureWorks DWH – All Dimension Tables for ClickHouse
