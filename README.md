@@ -1,16 +1,10 @@
-# AdventureWorks DWH Project
+# AdventureWorks Data Warehouse + Real-time Power BI
 
-Data Warehouse būvēšana no AdventureWorks datiem, izmantojot ClickHouse un Airflow. Balstīts uz uzdevumiem no dwh-task-complete.md un powerbi-task.md.
+Complete internship task implementation:
+- ClickHouse DWH with SCD Type 2
+- Apache Airflow ETL with full error handling
+- Real-time Power BI DirectQuery dashboards
 
-## Struktūra
-- `sql/`: ClickHouse tabulu skripti
-- `airflow/`: ETL DAG un moduļi
-- `docs/`: Dokumentācija
+Daily progress pushed every evening with checkbox updates.
 
-## Progresu Sekošana
-- [x] Izveidotas dimensiju un faktu tabulas (SQL)
-- [x] Pamata DAG struktūra
-- [ ] Pilna ETL testēšana
-- [ ] Power BI skripti pievienoti
-
-Katru vakaru push: Pēdējais commit - $(date).
+Current status: All ClickHouse tables + Airflow DAG skeleton ready
