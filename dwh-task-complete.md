@@ -846,20 +846,20 @@ def detect_changes(source_table, current_version):
 ## Deliverables
 
 ### 1. SQL Scripts for ClickHouse Table Creation
-- [x] `01_create_dim_tables.sql` - All dimension table definitions (SCD Type 1 & Type 2)
-- [x] `02_create_fact_tables.sql` - All fact table definitions with appropriate engine
-- [x] `03_create_aggregate_tables.sql` - Aggregate table and materialized view definitions
-- [x] `04_create_error_tables.sql` - Error records and monitoring tables
-- [x] `05_create_indexes_and_partitioning.sql` - Optimization scripts
+- `01_create_dim_tables.sql` - All dimension table definitions (SCD Type 1 & Type 2)
+- `02_create_fact_tables.sql` - All fact table definitions with appropriate engine
+- `03_create_aggregate_tables.sql` - Aggregate table and materialized view definitions
+- `04_create_error_tables.sql` - Error records and monitoring tables
+- `05_create_indexes_and_partitioning.sql` - Optimization scripts
 
 ### 2. Apache Airflow DAG Python Scripts
-- [x] `dwh_etl_main_dag.py` - Main DAG orchestrating all tasks
-- [x] `extraction.py` - PostgreSQL data extraction functions with error handling
-- [x] `validation.py` - Data quality validation functions
-- [x] `transformation.py` - Data transformation and SCD logic
-- [x] `loading.py` - ClickHouse load functions with error logging
-- [x] `error_handling.py` - Error recording, classification, and reprocessing logic
-- [x] `utilities.py` - Helper functions (logging, error handling, metadata mgmt, alerting)
+- `dwh_etl_main_dag.py` - Main DAG orchestrating all tasks
+- `extraction.py` - PostgreSQL data extraction functions with error handling
+- `validation.py` - Data quality validation functions
+- `transformation.py` - Data transformation and SCD logic
+- `loading.py` - ClickHouse load functions with error logging
+- `error_handling.py` - Error recording, classification, and reprocessing logic
+- `utilities.py` - Helper functions (logging, error handling, metadata mgmt, alerting)
 
 ### 3. Documentation
 - **Star Schema Design Document** (2-3 pages):
