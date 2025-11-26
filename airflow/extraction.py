@@ -1,42 +1,85 @@
+"""
+Extraction logic for AdventureWorks source in PostgreSQL.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Dict, Iterable, Optional
 
 import pandas as pd
-import logging
-from sqlalchemy import create_engine
-from utilities import get_db_connection, log_error
 
-def extract_table(table_name: str, incremental_col: str = None, last_run_date: str = None) -> pd.DataFrame:
-    """Universal extractor with incremental support"""
-    conn = get_db_connection('postgresql')
-    try:
-        if incremental_col and last_run_date:
-            query = f"SELECT * FROM {table_name} WHERE {incremental_col} > '{last_run_date}'"
-            logging.info(f"Incremental extract from {table_name} since {last_run_date}")
-        else:
-            query = f"SELECT * FROM {table_name}"
-            logging.info(f"Full extract from {table_name}")
+from utilities import (
+    PostgresConfig,
+    dataframe_from_query,
+    determine_processing_window,
+    get_logger,
+    get_postgres_conn,
+    load_last_run_time,
+    log_row_counts,
+    save_last_run_time,
+)
 
-        df = pd.read_sql(query, conn)
-        logging.info(f"Extracted {len(df)} rows from {table_name}")
-        return df
-    except Exception as e:
-        log_error(table_name, "EXTRACTION", "CRITICAL", str(e))
-        raise
-    finally:
-        conn.close()
+LOGGER = get_logger("extraction")
 
-def extract_all_dimensions(**context):
-    dims = ['Customer', 'Product', 'Store', 'Employee', 'Promotion', 'Vendor']
-    results = {}
-    for dim in dims:
-        df = extract_table(f"dim_{dim.lower()}", "ModifiedDate", context['ds'])
-        results[f"dim_{dim.lower()}"] = df
-        context['ti'].xcom_push(key=f"dim_{dim.lower()}", value=df.head(0).to_json())  # schema only
-    return results
 
-def extract_all_facts(**context):
-    facts = ['SalesOrderHeader', 'SalesOrderDetail', 'PurchaseOrderHeader', 'InventoryTransaction']
-    results = {}
-    for fact in facts:
-        df = extract_table(fact, "ModifiedDate", context['ds'])
-        results[fact.lower()] = df
-    return results
+DIMENSION_TABLES = {
+    "customer": "sales.customer",
+    "product": "production.product",
+    "store": "sales.store",
+    "employee": "humanresources.employee",
+    "vendor": "purchasing.vendor",
+}
+
+FACT_TABLES = {
+    "FactSales": "sales.salesorderdetail",
+    "FactPurchases": "purchasing.purchaseorderdetail",
+    "FactInventory": "production.productinventory",
+    "FactReturns": "sales.salesorderheadersalesreason",
+}
+
+
+def extract_incremental_data(
+    processing_date: str,
+    pg_config: PostgresConfig,
+    tables: Optional[Iterable[str]] = None,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Pull incremental data for the provided processing date.
+    """
+    LOGGER.info("Starting extraction for %s", processing_date)
+    selected_tables = tables or list(DIMENSION_TABLES.keys()) + list(FACT_TABLES.keys())
+
+    last_run = load_last_run_time("extraction")
+    window = determine_processing_window(last_run, datetime.fromisoformat(f"{processing_date}T00:00:00"))
+
+    payload: Dict[str, pd.DataFrame] = {}
+    with get_postgres_conn(pg_config) as conn:
+        for name in selected_tables:
+            query = _build_query(name, window)
+            df = dataframe_from_query(conn, query)
+            log_row_counts(LOGGER, f"extracted_{name}", df)
+            payload[name] = df
+
+    save_last_run_time("extraction", datetime.utcnow())
+    return payload
+
+
+def _build_query(table_name: str, window: Dict[str, datetime]) -> str:
+    if table_name in DIMENSION_TABLES:
+        source = DIMENSION_TABLES[table_name]
+        return (
+            f"SELECT * FROM {source} "
+            f"WHERE COALESCE(modifieddate, now()) BETWEEN '{window['from']}' AND '{window['to']}'"
+        )
+
+    source = FACT_TABLES.get(table_name)
+    if not source:
+        raise ValueError(f"Unknown table {table_name}")
+    process_date = window["to"].date()
+    return (
+        f"SELECT * FROM {source} "
+        f"WHERE CAST('{process_date}' AS DATE) = CAST(modifieddate AS DATE)"
+    )
+
+

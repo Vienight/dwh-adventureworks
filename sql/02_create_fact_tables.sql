@@ -1,148 +1,141 @@
+-- ClickHouse Fact Tables for AdventureWorks DWH
 
--- ===================================================================
--- 02_create_fact_tables.sql
--- AdventureWorks DWH – All Fact Tables (Core + Extended)
--- ===================================================================
-
--- FactSales (main transactional fact)
-CREATE TABLE FactSales
+CREATE TABLE IF NOT EXISTS FactSales
 (
-    SalesDateKey        UInt32,
-    CustomerKey         UInt32,
-    ProductKey          UInt32,
-    StoreKey            UInt32,
-    EmployeeKey         UInt32,
-    PromotionKey        UInt32,
-    SalesAmount         Decimal(18, 2),
-    Quantity            UInt32,
-    DiscountAmount      Decimal(18, 2),
-    TransactionCount    UInt32,
-    UnitPrice           Decimal(18, 2),
-    NetRevenue          Decimal(18, 2),
-    GrossProfit         Decimal(18, 2)
+    SalesDateKey UInt32,
+    CustomerKey UInt32,
+    ProductKey UInt32,
+    StoreKey UInt32,
+    EmployeeKey UInt32,
+    SalesAmount Decimal(18, 2),
+    Quantity UInt32,
+    DiscountAmount Decimal(18, 2),
+    TransactionCount UInt32,
+    OrderNumber String
 )
 ENGINE = MergeTree()
-ORDER BY (SalesDateKey, CustomerKey, ProductKey, StoreKey)
-PARTITION BY toYYYYMM(SalesDateKey);
+ORDER BY (SalesDateKey, StoreKey, ProductKey, CustomerKey)
+PARTITION BY toYYYYMM(toDate(SalesDateKey));
 
--- FactPurchases
-CREATE TABLE FactPurchases
+CREATE TABLE IF NOT EXISTS FactPurchases
 (
-    PurchaseDateKey     UInt32,
-    ProductKey          UInt32,
-    VendorKey           UInt32,
-    PurchaseAmount      Decimal(18, 2),
-    PurchaseQuantity    UInt32,
-    UnitCost            Decimal(18, 2),
-    DiscountAmount      Decimal(18, 2)
+    PurchaseDateKey UInt32,
+    ProductKey UInt32,
+    VendorKey UInt32,
+    PurchaseAmount Decimal(18, 2),
+    PurchaseQuantity UInt32,
+    DiscountAmount Decimal(18, 2),
+    UnitCost Decimal(18, 2),
+    PurchaseOrderNumber String
 )
 ENGINE = MergeTree()
-ORDER BY (PurchaseDateKey, ProductKey, VendorKey)
-PARTITION BY toYYYYMM(PurchaseDateKey);
+ORDER BY (PurchaseDateKey, VendorKey, ProductKey)
+PARTITION BY toYYYYMM(toDate(PurchaseDateKey));
 
--- FactInventory (daily snapshot – factless + measures)
-CREATE TABLE FactInventory
+CREATE TABLE IF NOT EXISTS FactInventory
 (
-    InventoryDateKey    UInt32,
-    ProductKey          UInt32,
-    StoreKey            UInt32,
-    WarehouseKey        UInt32,
-    QuantityOnHand      Int32,
-    ReorderLevel        UInt32,
-    SafetyStock         UInt32,
-    StockAgingDays      UInt32
+    InventoryDateKey UInt32,
+    ProductKey UInt32,
+    StoreKey UInt32,
+    WarehouseKey UInt32,
+    QuantityOnHand Int32,
+    StockAgingDays UInt16,
+    ReorderLevel Int32,
+    SafetyStock Int32
 )
 ENGINE = MergeTree()
-ORDER BY (InventoryDateKey, ProductKey, StoreKey)
-PARTITION BY toYYYYMM(InventoryDateKey);
+ORDER BY (InventoryDateKey, WarehouseKey, ProductKey)
+PARTITION BY toYYYYMM(toDate(InventoryDateKey));
 
--- FactProduction
-CREATE TABLE FactProduction
+CREATE TABLE IF NOT EXISTS FactProduction
 (
-    ProductionDateKey   UInt32,
-    ProductKey          UInt32,
-    EmployeeKey         UInt32,
-    UnitsProduced       UInt32,
-    ProductionTimeHours Decimal(10, 2),
-    ScrapRate           Decimal(5, 4),
-    DefectCount         UInt32
+    ProductionDateKey UInt32,
+    ProductKey UInt32,
+    EmployeeKey UInt32,
+    UnitsProduced UInt32,
+    ProductionTimeHours Float32,
+    ScrapRate Decimal(5, 2),
+    DefectCount UInt32,
+    ProductionBatch String
 )
 ENGINE = MergeTree()
-ORDER BY (ProductionDateKey, ProductKey)
-PARTITION BY toYYYYMM(ProductionDateKey);
+ORDER BY (ProductionDateKey, ProductKey, EmployeeKey)
+PARTITION BY toYYYYMM(toDate(ProductionDateKey));
 
--- FactEmployeeSales (daily employee performance)
-CREATE TABLE FactEmployeeSales
+CREATE TABLE IF NOT EXISTS FactEmployeeSales
 (
-    SalesDateKey        UInt32,
-    EmployeeKey         UInt32,
-    StoreKey            UInt32,
-    TerritoryKey        UInt32,
-    SalesAmount         Decimal(18, 2),
-    Quantity            UInt32,
-    TransactionCount    UInt32
+    SalesDateKey UInt32,
+    EmployeeKey UInt32,
+    StoreKey UInt32,
+    SalesTerritoryKey UInt32,
+    SalesAmount Decimal(18, 2),
+    SalesTarget Decimal(18, 2),
+    CustomerContacts UInt32
 )
 ENGINE = MergeTree()
-ORDER BY (SalesDateKey, EmployeeKey)
-PARTITION BY toYYYYMM(SalesDateKey);
+ORDER BY (SalesDateKey, EmployeeKey, StoreKey)
+PARTITION BY toYYYYMM(toDate(SalesDateKey));
 
--- FactCustomerFeedback
-CREATE TABLE FactCustomerFeedback
+CREATE TABLE IF NOT EXISTS FactCustomerFeedback
 (
-    FeedbackDateKey     UInt32,
-    CustomerKey         UInt32,
-    EmployeeKey         UInt32,
+    FeedbackDateKey UInt32,
+    CustomerKey UInt32,
+    EmployeeKey UInt32,
     FeedbackCategoryKey UInt32,
-    Score               UInt8,                    -- 1-5
-    ResolutionTimeHours Decimal(8, 2),
-    CSAT                Decimal(4, 2)
+    FeedbackScore UInt8,
+    ComplaintCount UInt32,
+    ResolutionTimeHours Float32,
+    CSATScore Decimal(5, 2)
 )
 ENGINE = MergeTree()
-ORDER BY (FeedbackDateKey, CustomerKey)
-PARTITION BY toYYYYMM(FeedbackDateKey);
+ORDER BY (FeedbackDateKey, CustomerKey, FeedbackCategoryKey)
+PARTITION BY toYYYYMM(toDate(FeedbackDateKey));
 
--- FactPromotionResponse
-CREATE TABLE FactPromotionResponse
+CREATE TABLE IF NOT EXISTS FactPromotionResponse
 (
-    PromotionDateKey    UInt32,
-    PromotionKey        UInt32,
-    ProductKey          UInt32,
-    StoreKey            UInt32,
-    SalesDuringPromo    Decimal(18, 2),
-    DiscountUsedCount   UInt32,
-    UptakeRate          Decimal(6, 4)
+    PromotionDateKey UInt32,
+    ProductKey UInt32,
+    StoreKey UInt32,
+    PromotionKey UInt32,
+    SalesDuringCampaign Decimal(18, 2),
+    DiscountUsageCount UInt32,
+    CustomerUptakeRate Decimal(5, 2),
+    PromotionROI Decimal(8, 2)
 )
 ENGINE = MergeTree()
-ORDER BY (PromotionDateKey, PromotionKey, ProductKey)
-PARTITION BY toYYYYMM(PromotionDateKey);
+ORDER BY (PromotionDateKey, PromotionKey, ProductKey, StoreKey)
+PARTITION BY toYYYYMM(toDate(PromotionDateKey));
 
--- FactFinance
-CREATE TABLE FactFinance
+CREATE TABLE IF NOT EXISTS FactFinance
 (
-    InvoiceDateKey      UInt32,
-    CustomerKey         UInt32,
-    StoreKey            UInt32,
-    FinanceCategoryKey  UInt32,
-    InvoiceAmount       Decimal(18, 2),
-    PaymentDelayDays    Int16,
-    CreditUsage         Decimal(18, 2)
+    InvoiceDateKey UInt32,
+    FinanceCategoryKey UInt32,
+    CustomerKey UInt32,
+    StoreKey UInt32,
+    InvoiceAmount Decimal(18, 2),
+    PaymentDelayDays Int32,
+    CreditUsage Decimal(5, 2),
+    InterestCharges Decimal(18, 2),
+    InvoiceNumber String
 )
 ENGINE = MergeTree()
-ORDER BY (InvoiceDateKey, CustomerKey)
-PARTITION BY toYYYYMM(InvoiceDateKey);
+ORDER BY (InvoiceDateKey, FinanceCategoryKey, CustomerKey)
+PARTITION BY toYYYYMM(toDate(InvoiceDateKey));
 
--- FactReturns
-CREATE TABLE FactReturns
+CREATE TABLE IF NOT EXISTS FactReturns
 (
-    ReturnDateKey       UInt32,
-    ProductKey          UInt32,
-    CustomerKey         UInt32,
-    StoreKey            UInt32,
-    ReturnReasonKey     UInt32,
-    ReturnedQuantity    UInt32,
-    RefundAmount        Decimal(18, 2),
-    RestockingFee       Decimal(18, 2)
+    ReturnDateKey UInt32,
+    ProductKey UInt32,
+    CustomerKey UInt32,
+    StoreKey UInt32,
+    ReturnReasonKey UInt32,
+    ReturnedQuantity UInt32,
+    RefundAmount Decimal(18, 2),
+    RestockingFee Decimal(18, 2),
+    ReturnAuthorizationNumber String
 )
 ENGINE = MergeTree()
 ORDER BY (ReturnDateKey, ProductKey, CustomerKey)
-PARTITION BY toYYYYMM(ReturnDateKey);
+PARTITION BY toYYYYMM(toDate(ReturnDateKey));
+
+

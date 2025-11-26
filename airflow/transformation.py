@@ -1,39 +1,70 @@
+"""
+Transformation and SCD logic.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 import pandas as pd
-from datetime import datetime
-import logging
 
-def apply_scd2(current_df: pd.DataFrame, new_df: pd.DataFrame, natural_key: str, change_cols: list):
-    """Pure pandas SCD Type 2 – production proven"""
-    if current_df.empty:
-        new_df['ValidFromDate'] = datetime.today().date()
-        new_df['ValidToDate'] = None
-        new_df['IsCurrent'] = 1
-        return new_df
+from utilities import get_logger
 
-    # Detect changes
-    merged = new_df.merge(current_df[current_df['IsCurrent'] == 1],
-                          on=natural_key, how='left', suffixes=('_new', '_curr'))
+LOGGER = get_logger("transformation")
 
-    changed = merged[merged[change_cols].apply(lambda x: x.iloc[0] != x.iloc[1], axis=1).any(axis=1)]
 
-    # Expire old versions
-    if not changed.empty:
-        expired_keys = changed[natural_key]
-        current_df.loc[current_df[natural_key].isin(expired_keys) & (current_df['IsCurrent'] == 1),
-                       ['ValidToDate', 'IsCurrent']] = [datetime.today().date(), 0]
+@dataclass
+class SCDDiff:
+    inserts: pd.DataFrame
+    updates: pd.DataFrame
 
-    # Add new versions
-    new_versions = new_df[new_df[natural_key].isin(changed[natural_key])].copy()
-    new_versions['ValidFromDate'] = datetime.today().date()
-    new_versions['ValidToDate'] = None
-    new_versions['IsCurrent'] = 1
 
-    return pd.concat([current_df, new_versions], ignore_index=True)
+def detect_scd2_changes(
+    current_df: pd.DataFrame,
+    incoming_df: pd.DataFrame,
+    natural_key: str,
+    tracked_columns: List[str],
+) -> SCDDiff:
+    """
+    Compare incoming records to current dimension snapshot.
+    """
+    current_df = current_df.set_index(natural_key)
+    incoming_df = incoming_df.set_index(natural_key)
 
-def transform_and_scd2_merge(**context):
-    # Example for DimCustomer
-    new_customers = context['ti'].xcom_pull(task_ids='extract_dimensions')['dim_customer']
-    # In real life you'd load current version from ClickHouse first
-    logging.info("SCD2 transformation completed")
-    return "done"
+    new_keys = incoming_df.index.difference(current_df.index)
+    inserts = incoming_df.loc[new_keys].reset_index()
+
+    joined = incoming_df.join(current_df, lsuffix="_new", rsuffix="_curr", how="inner")
+
+    change_mask = False
+    for column in tracked_columns:
+        mask = joined[f"{column}_new"] != joined[f"{column}_curr"]
+        change_mask = change_mask | mask if isinstance(change_mask, pd.Series) else mask
+
+    updates = joined[change_mask].reset_index()
+    LOGGER.info(
+        "SCD diff computed: inserts=%s updates=%s",
+        len(inserts),
+        len(updates),
+    )
+    return SCDDiff(inserts=inserts, updates=updates)
+
+
+def build_fact_payload(
+    fact_name: str,
+    fact_df: pd.DataFrame,
+    lookup_maps: Dict[str, Dict[int, int]],
+    fk_columns: Dict[str, str],
+) -> pd.DataFrame:
+    """
+    Replace natural keys with surrogate keys for fact loads.
+    """
+    enriched = fact_df.copy()
+    for lookup_name, column in fk_columns.items():
+        mapping = lookup_maps.get(lookup_name, {})
+        enriched[column] = enriched[column].map(mapping)
+    LOGGER.info("Fact payload prepared for %s rows=%s", fact_name, len(enriched))
+    return enriched
+
+
